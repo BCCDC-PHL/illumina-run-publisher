@@ -1,9 +1,5 @@
 #!/usr/bin/env python
 
-# A publisher has no connected subscribers, then it will simply drop all messages.
-# If you’re using TCP, and a subscriber is slow, messages will queue up on the publisher.
-# In the current versions of ØMQ, filtering happens at the subscriber side, not the publisher side.
-
 import argparse
 import zmq
 import random

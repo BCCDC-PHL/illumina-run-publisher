@@ -32,22 +32,33 @@ class RunEventHandler(FileSystemEventHandler):
         message = json.dumps(messagedata)
         print("%s %s" % (topic, message))
         self.socket.send_string("%s %s" % (topic, message))
-    
-    
+
+def heartbeat(socket):
+    topic = "illumina_runs"
+    now = datetime.now().isoformat()
+    messagedata = {
+        "timestamp": now,
+        "event": "heartbeat",
+    }
+    message = json.dumps(messagedata)
+    print("%s %s" % (topic, message))
+    socket.send_string("%s %s" % (topic, message))
+        
 def main(args):
 
     context = zmq.Context()
     socket = context.socket(zmq.PUB)
     socket.bind("tcp://*:%s" % args.port)
 
-    event_handler = RunEventHandler(socket)
+    run_event_handler = RunEventHandler(socket)
     observer = Observer()
-    observer.schedule(event_handler, args.path, recursive=False)
+    observer.schedule(run_event_handler, args.path, recursive=False)
     observer.start()
     
     try:
         while True:
             time.sleep(1)
+            heartbeat(socket)
     except KeyboardInterrupt:
         observer.stop()
     observer.join()

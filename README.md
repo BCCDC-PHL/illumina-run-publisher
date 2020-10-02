@@ -4,6 +4,12 @@ Watch a path for new illumina runs to arrive. When they arrive, parse the `Sampl
 
 ## Usage
 
+### Creating Key Pairs
+
+This service uses ZeroMQ CURVE authentication, which requires a public/private key pair.
+
+One can use [generate_certificates.py](https://github.com/zeromq/pyzmq/blob/master/examples/security/generate_certificates.py) from the [pyzmq examples security repository](https://github.com/zeromq/pyzmq/tree/master/examples/security) to create these keys.
+
 ### Publisher
 
 ```

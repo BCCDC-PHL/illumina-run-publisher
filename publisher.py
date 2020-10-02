@@ -68,22 +68,27 @@ def main(args):
     ]
 
     run_event_handler = RunEventHandler(socket, regexes=illumina_run_dir_regexes)
-    observer = Observer()
-    observer.schedule(run_event_handler, args.path, recursive=False)
-    observer.start()
+
+    observers = []
+    for path in args.path:
+        observer = Observer()
+        observer.schedule(run_event_handler, path, recursive=False)
+        observer.start()
+        observers.append(observer)
     
     try:
         while True:
             time.sleep(1)
             heartbeat(socket)
     except KeyboardInterrupt:
-        observer.stop()
-        observer.join()
+        for observer in observers:
+            observer.stop()
+            observer.join()
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--port', default=5556)
-    parser.add_argument('--path')
+    parser.add_argument('--path', action='append')
     args = parser.parse_args()
     main(args)

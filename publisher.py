@@ -3,9 +3,14 @@
 import argparse
 import zmq
 import random
+import os
 import sys
 import time
 import json
+
+from sample_sheet import SampleSheet
+
+from pprint import pprint
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -20,10 +25,19 @@ class RunEventHandler(FileSystemEventHandler):
     def on_created(self, event):
         topic = "illumina_runs"
         now = datetime.now().isoformat()
+        time.sleep(5)
+        try:
+            sample_sheet = SampleSheet(os.path.join(event.src_path, 'SampleSheet.csv'))
+        except FileNotFoundError as e:
+            print(e)
+
+        sample_sheet_dict = json.loads(sample_sheet.to_json())
+
         messagedata = {
             "timestamp": now,
             "event": "new_run",
             "path": event.src_path,
+            "experiment_name": sample_sheet_dict['Header']['Experiment Name']
         }
         message = json.dumps(messagedata)
         print("%s %s" % (topic, message))

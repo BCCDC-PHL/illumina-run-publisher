@@ -60,10 +60,6 @@ def heartbeat(socket):
         
 def main(args):
 
-    if not (args.public_key and args.private_key):
-        print("Public and private keys are required.")
-        sys.exit(1)
-
     context = zmq.Context()
 
     auth = ThreadAuthenticator(context)
@@ -103,13 +99,13 @@ def main(args):
         for observer in observers:
             observer.stop()
             observer.join()
-
+        auth.stop()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--port', default=5556)
     parser.add_argument('--path', action='append')
-    parser.add_argument('--public_key')
-    parser.add_argument('--private_key')
+    parser.add_argument('--public_key', required=True)
+    parser.add_argument('--private_key', required=True)
     args = parser.parse_args()
     main(args)

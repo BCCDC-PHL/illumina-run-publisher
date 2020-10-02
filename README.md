@@ -7,12 +7,15 @@ Watch a path for new illumina runs to arrive. When they arrive, parse the `Sampl
 ### Publisher
 
 ```
-usage: publisher.py [-h] [--port PORT] [--path PATH]
+usage: publisher.py [-h] [--port PORT] [--path PATH] --public_key PUBLIC_KEY
+                    --private_key PRIVATE_KEY
 
 optional arguments:
-  -h, --help   show this help message and exit
+  -h, --help            show this help message and exit
   --port PORT
   --path PATH
+  --public_key PUBLIC_KEY
+  --private_key PRIVATE_KEY
 ```
 
 Note: multiple paths can be watched simultaneously. eg:
@@ -26,11 +29,13 @@ publisher.py --path /path/to/sequencer-01 --path /path/to/sequencer-02
 A simple demo subscriber script is included. It simply prints messages from the `illumina_runs` topic to stdout.
 
 ```
-usage: subscriber.py [-h] [--port PORT]
+usage: subscriber.py [-h] [--port PORT] --public_key PUBLIC_KEY --private_key PRIVATE_KEY
 
 optional arguments:
-  -h, --help   show this help message and exit
+  -h, --help            show this help message and exit
   --port PORT
+  --public_key PUBLIC_KEY
+  --private_key PRIVATE_KEY
 ```
 
 ## Messages

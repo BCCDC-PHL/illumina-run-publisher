@@ -1,21 +1,23 @@
 #!/usr/bin/env python
 
 import argparse
-import zmq
-import random
+import json
 import os
 import sys
 import time
-import json
+
+from datetime import datetime
+from pprint import pprint
+
+import zmq
+import zmq.auth
+from zmq.auth.thread import ThreadAuthenticator
 
 from sample_sheet import SampleSheet
-
-from pprint import pprint
 
 from watchdog.observers import Observer
 from watchdog.events import RegexMatchingEventHandler
 
-from datetime import datetime
 
 class RunEventHandler(RegexMatchingEventHandler):
     def __init__(self, socket, regexes):
@@ -58,8 +60,25 @@ def heartbeat(socket):
         
 def main(args):
 
+    if not (args.public_key and args.private_key):
+        print("Public and private keys are required.")
+        sys.exit(1)
+
     context = zmq.Context()
+
+    auth = ThreadAuthenticator(context)
+    auth.start()
+    auth.allow('127.0.0.1')
+    auth.configure_curve(domain='*', location=zmq.auth.CURVE_ALLOW_ANY)
+
+    server_public_file = args.public_key
+    server_secret_file = args.private_key
+    server_public, server_secret = zmq.auth.load_certificate(server_secret_file)
+    
     socket = context.socket(zmq.PUB)
+    socket.curve_secretkey = server_secret
+    socket.curve_publickey = server_public
+    socket.curve_server = True
     socket.bind("tcp://*:%s" % args.port)
 
     miseq_run_dir_regex = ".+/\d{6}_[A-Z0-9]{6}_\d{4}_\d{9}-[A-Z0-9]{5}$"
@@ -90,5 +109,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--port', default=5556)
     parser.add_argument('--path', action='append')
+    parser.add_argument('--public_key')
+    parser.add_argument('--private_key')
     args = parser.parse_args()
     main(args)

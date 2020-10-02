@@ -35,8 +35,8 @@ class RunEventHandler(FileSystemEventHandler):
 
         messagedata = {
             "timestamp": now,
-            "event": "new_run",
-            "path": event.src_path,
+            "event": "run_directory_created",
+            "path": os.path.abspath(event.src_path),
             "experiment_name": sample_sheet_dict['Header']['Experiment Name']
         }
         message = json.dumps(messagedata)

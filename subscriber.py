@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import argparse
 import sys
 import zmq
 
@@ -17,7 +18,7 @@ def main(args):
 
     while True:
         # Receives a string format message
-        print(socket.recv())
+        print(socket.recv_string())
 
 
 if __name__ == '__main__':

@@ -47,6 +47,7 @@ class RunEventHandler(RegexMatchingEventHandler):
         print("%s %s" % (topic, message))
         self.socket.send_string("%s %s" % (topic, message))
 
+
 def heartbeat(socket):
     topic = "illumina_runs"
     now = datetime.now().isoformat()
@@ -57,7 +58,8 @@ def heartbeat(socket):
     message = json.dumps(messagedata)
     print("%s %s" % (topic, message))
     socket.send_string("%s %s" % (topic, message))
-        
+
+
 def main(args):
 
     context = zmq.Context()
@@ -93,7 +95,7 @@ def main(args):
     
     try:
         while True:
-            time.sleep(1)
+            time.sleep(args.heartbeat_interval)
             heartbeat(socket)
     except KeyboardInterrupt:
         for observer in observers:
@@ -105,6 +107,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--port', default=5556)
     parser.add_argument('--path', action='append')
+    parser.add_argument('--heartbeat_interval', type=int, default=1)
     parser.add_argument('--public_key', required=True)
     parser.add_argument('--private_key', required=True)
     args = parser.parse_args()

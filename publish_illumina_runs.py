@@ -31,19 +31,32 @@ class RunEventHandler(RegexMatchingEventHandler):
         now = datetime.now().isoformat()
         time.sleep(5)
 
-        try:
-            sample_sheet = SampleSheet(os.path.join(event.src_path, 'SampleSheet.csv'))
-            sample_sheet_dict = json.loads(sample_sheet.to_json())
-            experiment_name = sample_sheet_dict['Header']['Experiment Name']
-        except Exception as e:
-            print(e)
-
         messagedata = {
             "timestamp": now,
             "event": "run_directory_created",
             "path": os.path.abspath(event.src_path),
-            "experiment_name": experiment_name
+            "experiment_name": None,
+            "run_date": None,
+            "instrument_type": None,
         }
+        
+        try:
+            sample_sheet = SampleSheet(os.path.join(event.src_path, 'SampleSheet.csv'))
+            sample_sheet_dict = json.loads(sample_sheet.to_json())
+            experiment_name = sample_sheet_dict['Header']['Experiment Name']
+            run_date = sample_sheet_dict['Header']['Date']
+            run_date = datetime.strptime(run_date, '%m/%d/%Y').date()
+            run_date_iso8601 = run_date.isoformat()
+            instrument_type = sample_sheet_dict['Header']['Instrument Type']
+            investigator_name = sample_sheet_dict['Header']['Investigator Name']
+        except Exception as e:
+            print(e)
+
+        messagedata['experiment_name'] = experiment_name
+        messagedata['run_date'] = run_date_iso8601
+        messagedata['instrument_type'] = instrument_type
+        messagedata['investigator_name'] = investigator_name
+
         message = json.dumps(messagedata)
         print("%s %s" % (topic, message))
         self.socket.send_string("%s %s" % (topic, message))

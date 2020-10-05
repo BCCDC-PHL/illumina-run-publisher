@@ -59,9 +59,12 @@ Messages are published to the `illumina_runs` topic. There are currently two mes
 
 ```json
 {
-  "timestamp": "2020-10-01T17:23:52.561107",
+  "timestamp": "2020-10-05T15:42:09.605165",
   "event": "run_directory_created",
   "path": "/path/to/201001_M00325_0210_000000000-A5B31",
-  "experiment_name": "Truly Insightful Experiment"
+  "experiment_name": "Truly Insightful Experiment",
+  "run_date": "2020-10-01",
+  "instrument_type": "MiSeq",
+  "investigator_name": "Dr. Sequencer"
 }
 ```

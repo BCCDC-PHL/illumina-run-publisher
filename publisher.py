@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import sys
+import threading
 import time
 
 from datetime import datetime
@@ -48,16 +49,18 @@ class RunEventHandler(RegexMatchingEventHandler):
         self.socket.send_string("%s %s" % (topic, message))
 
 
-def heartbeat(socket):
+def heartbeat(socket, heartbeat_interval):
     topic = "illumina_runs"
-    now = datetime.now().isoformat()
-    messagedata = {
-        "timestamp": now,
-        "event": "heartbeat",
-    }
-    message = json.dumps(messagedata)
-    print("%s %s" % (topic, message))
-    socket.send_string("%s %s" % (topic, message))
+    while True:
+        now = datetime.now().isoformat()
+        messagedata = {
+            "timestamp": now,
+            "event": "heartbeat",
+        }
+        message = json.dumps(messagedata)
+        print("%s %s" % (topic, message))
+        socket.send_string("%s %s" % (topic, message))
+        time.sleep(heartbeat_interval)
 
 
 def main(args):
@@ -92,16 +95,19 @@ def main(args):
         observer.schedule(run_event_handler, path, recursive=False)
         observer.start()
         observers.append(observer)
+
+    heartbeat_thread = threading.Thread(target=heartbeat, args=([socket, args.heartbeat_interval]), daemon=True)
+    heartbeat_thread.start()
     
     try:
         while True:
-            time.sleep(args.heartbeat_interval)
-            heartbeat(socket)
+            time.sleep(1)
     except KeyboardInterrupt:
         for observer in observers:
             observer.stop()
             observer.join()
         auth.stop()
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

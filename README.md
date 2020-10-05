@@ -13,13 +13,15 @@ One can use [generate_certificates.py](https://github.com/zeromq/pyzmq/blob/mast
 ### Publisher
 
 ```
-usage: publisher.py [-h] [--port PORT] [--path PATH] --public_key PUBLIC_KEY
+usage: publisher.py [-h] [--port PORT] [--path PATH]
+                    [--heartbeat_interval HEARTBEAT_INTERVAL] --public_key PUBLIC_KEY
                     --private_key PRIVATE_KEY
 
 optional arguments:
   -h, --help            show this help message and exit
   --port PORT
   --path PATH
+  --heartbeat_interval HEARTBEAT_INTERVAL
   --public_key PUBLIC_KEY
   --private_key PRIVATE_KEY
 ```

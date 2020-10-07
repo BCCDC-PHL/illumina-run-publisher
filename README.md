@@ -65,6 +65,8 @@ Messages are published to the `illumina_runs` topic. There are currently two mes
   "experiment_name": "Truly Insightful Experiment",
   "run_date": "2020-10-01",
   "instrument_type": "MiSeq",
-  "investigator_name": "Dr. Sequencer"
+  "instrument_id": "M00325",
+  "flowcell_id": "000000000-A5B31",
+  "investigator_name": "Dr. Sequencer",
 }
 ```

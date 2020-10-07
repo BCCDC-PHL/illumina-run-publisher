@@ -20,6 +20,11 @@ from watchdog.observers import Observer
 from watchdog.events import RegexMatchingEventHandler
 
 
+__version__ = '0.1.0-SNAPSHOT'
+__author__ = 'Dan Fornika'
+__email__ = 'dan.fornika@bccdc.ca'
+
+
 class RunEventHandler(RegexMatchingEventHandler):
     def __init__(self, socket, regexes):
         super().__init__(regexes)

@@ -39,7 +39,6 @@ class RunEventHandler(RegexMatchingEventHandler):
             "run_date": None,
             "instrument_type": None,
             "instrument_id": None,
-            
         }
         
         try:

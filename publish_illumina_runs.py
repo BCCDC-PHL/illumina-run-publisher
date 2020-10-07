@@ -34,26 +34,33 @@ class RunEventHandler(RegexMatchingEventHandler):
         messagedata = {
             "timestamp": now,
             "event": "run_directory_created",
-            "path": os.path.abspath(event.src_path),
+            "path": None,
             "experiment_name": None,
             "run_date": None,
             "instrument_type": None,
+            "instrument_id": None,
+            
         }
         
         try:
+            path = os.path.abspath(event.src_path)
+            run_dir_name = os.path.basename(path)
+            date_short, instrument_id, run_num, flowcell_id = run_dir_name.split('_')
+            run_date = datetime.strptime('20' + date_short, '%Y%m%d').date()
+            run_date_isoformat = run_date.isoformat()
             sample_sheet = SampleSheet(os.path.join(event.src_path, 'SampleSheet.csv'))
             sample_sheet_dict = json.loads(sample_sheet.to_json())
             experiment_name = sample_sheet_dict['Header']['Experiment Name']
-            run_date = sample_sheet_dict['Header']['Date']
-            run_date = datetime.strptime(run_date, '%m/%d/%Y').date()
-            run_date_iso8601 = run_date.isoformat()
             instrument_type = sample_sheet_dict['Header']['Instrument Type']
             investigator_name = sample_sheet_dict['Header']['Investigator Name']
         except Exception as e:
             print(e)
 
+        messagedata['path'] = path
+        messagedata['instrument_id'] = instrument_id
+        messagedata['flowcell_id'] = flowcell_id
         messagedata['experiment_name'] = experiment_name
-        messagedata['run_date'] = run_date_iso8601
+        messagedata['run_date'] = run_date_isoformat
         messagedata['instrument_type'] = instrument_type
         messagedata['investigator_name'] = investigator_name
 

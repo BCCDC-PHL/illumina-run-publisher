@@ -16,8 +16,8 @@ One can use [generate_certificates.py](https://github.com/zeromq/pyzmq/blob/mast
 
 ```
 usage: publish_illumina_runs.py [-h] [--port PORT] [--path PATH]
-                                [--heartbeat_interval HEARTBEAT_INTERVAL] --public_key PUBLIC_KEY
-                                --private_key PRIVATE_KEY
+                                [--heartbeat_interval HEARTBEAT_INTERVAL]
+				[--public_key PUBLIC_KEY] [--private_key PRIVATE_KEY]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -39,7 +39,8 @@ publish_illumina_runs.py --path /path/to/sequencer-01 --path /path/to/sequencer-
 A simple demo subscriber script is included. It simply prints messages from the `illumina_runs` topic to stdout.
 
 ```
-usage: demo_subscriber.py [-h] [--port PORT] --public_key PUBLIC_KEY --private_key PRIVATE_KEY
+usage: demo_subscriber.py [-h] [--port PORT]
+                          [--public_key PUBLIC_KEY] [--private_key PRIVATE_KEY]
 
 optional arguments:
   -h, --help            show this help message and exit

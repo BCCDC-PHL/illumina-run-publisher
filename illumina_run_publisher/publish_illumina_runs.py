@@ -73,7 +73,7 @@ class RunEventHandler(RegexMatchingEventHandler):
         self.socket.send_string("%s %s" % (topic, message))
 
 
-def heartbeat(socket, heartbeat_interval):
+def heartbeat(socket, heartbeat_interval, print_heartbeat=False):
     topic = "illumina_runs"
     while True:
         now = datetime.now().isoformat()
@@ -82,7 +82,8 @@ def heartbeat(socket, heartbeat_interval):
             "event": "heartbeat",
         }
         message = json.dumps(messagedata)
-        print("%s %s" % (topic, message))
+        if (print_heartbeat):
+            print("%s %s" % (topic, message))
         socket.send_string("%s %s" % (topic, message))
         time.sleep(heartbeat_interval)
 
@@ -123,7 +124,7 @@ def main(args):
         observer.start()
         observers.append(observer)
 
-    heartbeat_thread = threading.Thread(target=heartbeat, args=([socket, args.heartbeat_interval]), daemon=True)
+    heartbeat_thread = threading.Thread(target=heartbeat, args=([socket, args.heartbeat_interval, args.print_heartbeat]), daemon=True)
     heartbeat_thread.start()
     
     try:
@@ -141,6 +142,7 @@ if __name__ == '__main__':
     parser.add_argument('--port', default=5556)
     parser.add_argument('--path', action='append')
     parser.add_argument('--heartbeat_interval', type=int, default=1)
+    parser.add_argument('--print_heartbeat', action='store_true')
     parser.add_argument('--public_key')
     parser.add_argument('--private_key')
     args = parser.parse_args()

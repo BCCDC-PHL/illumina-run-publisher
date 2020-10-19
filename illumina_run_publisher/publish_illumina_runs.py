@@ -7,6 +7,7 @@ import re
 import sys
 import threading
 import time
+import xml.etree.ElementTree as ET
 
 from datetime import datetime
 from pprint import pprint
@@ -70,6 +71,50 @@ class RunDirEventHandler(RegexMatchingEventHandler):
             message = json.dumps(messagedata)
             print("%s %s" % (topic, message))
             self.socket.send_string("%s %s" % (topic, message))
+        elif re.search("RunCompletionStatus.xml.[a-zA-Z0-9]{6}$", event.src_path) and re.search("RunCompletionStatus.xml$", event.dest_path):
+            now = datetime.now().isoformat()
+            topic = "illumina_runs"
+
+            messagedata = {
+                "timestamp": now,
+                "event": "run_completion_status_created",
+                "path": None,
+                "run_id": None,
+                "completion_status": None,
+                "step_completed": None,
+                "cycle_completed": None,
+                "error_description": None,
+            }
+
+            try:
+                messagedata['path'] = os.path.abspath(event.dest_path)
+                run_completion_status_tree = ET.parse(event.dest_path)
+                run_completion_status_root = run_completion_status_tree.getroot()
+                for child in run_completion_status_root:
+                    if child.tag == 'CompletionStatus':
+                        messagedata['completion_status'] = child.text
+                    elif child.tag == 'RunId':
+                        messagedata['run_id'] = child.text
+                    elif child.tag == 'StepCompleted':
+                        messagedata['step_completed'] = int(child.text)
+                    elif child.tag == 'CycleCompleted':
+                        messagedata['cycle_completed'] = int(child.text)
+                    elif child.tag == 'ErrorDescription':
+                        messagedata['error_description'] = child.text
+            except Exception as e:
+                print(e)
+
+            # messagedata['path'] = path
+            # messagedata['run_id'] = run_id
+            # messagedata['completion_status'] = completion_status
+            # messagedata['step_completed'] = step_completed
+            # messagedata['cycle_completed'] = cycle_completed
+            # messagedata['error_description'] = cycle_completed
+
+            message = json.dumps(messagedata)
+            print("%s %s" % (topic, message))
+            self.socket.send_string("%s %s" % (topic, message))
+            
         else:
             pass
 
@@ -155,10 +200,12 @@ def main(args):
     socket.bind("tcp://*:%s" % args.port)
 
     miseq_run_dir_regex = ".+/\d{6}_[A-Z0-9]{6}_\d{4}_\d{9}-[A-Z0-9]{5}$"
-    miseq_sample_sheet_regex = ".+/\d{6}_[A-Z0-9]{6}_\d{4}_\d{9}-[A-Z0-9]{5}/SampleSheet.csv"
+    miseq_sample_sheet_regex = ".+/\d{6}_[A-Z0-9]{6}_\d{4}_\d{9}-[A-Z0-9]{5}/SampleSheet.csv$"
+    miseq_run_completion_status_regex = ".+/\d{6}_[A-Z0-9]{6}_\d{4}_\d{9}-[A-Z0-9]{5}/RunCompletionStatus.xml$"
     illumina_run_dir_regexes = [
         miseq_sample_sheet_regex,
         miseq_run_dir_regex,
+        miseq_run_completion_status_regex,
     ]
 
     run_dir_event_handler = RunDirEventHandler(socket, regexes=illumina_run_dir_regexes)

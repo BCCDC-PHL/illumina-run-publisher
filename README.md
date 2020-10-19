@@ -53,7 +53,7 @@ optional arguments:
 
 ## Messages
 
-Messages are published to the `illumina_runs` topic. There are currently two message types
+Messages are published to the `illumina_runs` topic. There are currently four message types
 
 ```json
 {
@@ -86,5 +86,18 @@ Messages are published to the `illumina_runs` topic. There are currently two mes
   "experiment_name": "Truly Insightful Experiment",
   "instrument_type": "MiSeq",
   "investigator_name": "Dr. Sequencer",
+}
+```
+
+```json
+{
+  "timestamp": "2020-10-05T15:42:10.001029",
+  "event": "run_completion_status_created",
+  "path": "/path/to/201001_M00325_0210_000000000-A5B31/RunCompletionStatus.xml",
+  "run_id": "201001_M00325_0210_000000000-A5B31",
+  "completion_status": "SuccessfullyCompleted",
+  "step_completed": 23,
+  "cycle_completed": 518,
+  "error_description": "None"
 }
 ```

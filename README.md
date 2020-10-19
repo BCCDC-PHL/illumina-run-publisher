@@ -68,10 +68,23 @@ Messages are published to the `illumina_runs` topic. There are currently two mes
   "event": "run_directory_created",
   "path": "/path/to/201001_M00325_0210_000000000-A5B31",
   "experiment_name": "Truly Insightful Experiment",
+  "run_id": "201001_M00325_0210_000000000-A5B31",
   "run_date": "2020-10-01",
   "instrument_type": "MiSeq",
   "instrument_id": "M00325",
   "flowcell_id": "000000000-A5B31",
+  "investigator_name": "Dr. Sequencer",
+}
+```
+
+```json
+{
+  "timestamp": "2020-10-05T15:42:09.855106",
+  "event": "sample_sheet_created",
+  "path": "/path/to/201001_M00325_0210_000000000-A5B31/SampleSheet.csv",
+  "run_id": "201001_M00325_0210_000000000-A5B31",
+  "experiment_name": "Truly Insightful Experiment",
+  "instrument_type": "MiSeq",
   "investigator_name": "Dr. Sequencer",
 }
 ```

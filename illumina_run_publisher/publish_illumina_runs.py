@@ -64,6 +64,14 @@ class RunDirEventHandler(RegexMatchingEventHandler):
                 run_id = str(os.path.basename(os.path.dirname(event.dest_path)))
                 sample_sheet = SampleSheet(event.dest_path)
                 sample_sheet_dict = json.loads(sample_sheet.to_json())
+                for read in sample_sheet_dict['Reads']:
+                    messagedata['parsed_data']['reads'].append(read)
+                for key, val in sample_sheet_dict['Settings'].items():
+                    if key == 'ReverseComplement':
+                        key = 'reverse_complement'
+                    else:
+                        key = key.lower()
+                    messagedata['parsed_data']['settings'][key] = val
                 for sample in sample_sheet_dict['Data']:
                     sample_to_append = {}
                     for key, val in sample.items():
@@ -108,6 +116,8 @@ class RunDirEventHandler(RegexMatchingEventHandler):
 
             try:
                 messagedata['path'] = os.path.abspath(event.dest_path)
+                messagedata['run_id'] = str(os.path.basename(os.path.dirname(event.dest_path)))
+
                 run_completion_status_tree = ET.parse(event.dest_path)
                 run_completion_status_root = run_completion_status_tree.getroot()
                 for child in run_completion_status_root:

@@ -25,7 +25,7 @@ from watchdog.events import RegexMatchingEventHandler
 __version__ = '0.2.0-SNAPSHOT'
 __author__ = 'Dan Fornika'
 __email__ = 'dan.fornika@bccdc.ca'
-    
+
 
 class RunDirEventHandler(RegexMatchingEventHandler):
     def __init__(self, socket, regexes):

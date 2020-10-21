@@ -25,77 +25,106 @@ from watchdog.events import RegexMatchingEventHandler
 __version__ = '0.2.0-SNAPSHOT'
 __author__ = 'Dan Fornika'
 __email__ = 'dan.fornika@bccdc.ca'
-
+    
 
 class RunDirEventHandler(RegexMatchingEventHandler):
     def __init__(self, socket, regexes):
         super().__init__(regexes)
         self.socket = socket
+        self.topic = "illumina_runs"
+
+    def __parse_sample_sheet(self, path_to_sample_sheet):
+        parsed_sample_sheet = None
+        try:
+            sample_sheet = SampleSheet(path_to_sample_sheet)
+            parsed_sample_sheet = json.loads(sample_sheet.to_json())
+        except Exception as e:
+            print(e)
+
+        return parsed_sample_sheet
+
+    def __add_sample_sheet_data_to_message_data(self, message_data, sample_sheet):
+        parsed_data = {
+            "header": {
+                "experiment_name": None,
+                "instrument_type": None,
+                "investigator_name": None,
+                "workflow": None,
+                "chemistry": None,
+            },
+            "reads": [],
+            "settings": {},
+            "data": [],
+        }
+
+        sample_sheet_keys_to_message_keys_sample_sheet_header = {
+            'Experiment Name': 'experiment_name',
+            'Instrument Type': 'instrument_type',
+            'Investigator Name': 'investigator_name',
+            'Workflow': 'workflow',
+            'Chemistry': 'chemistry',
+        }
+        
+        for sample_sheet_key, message_key in sample_sheet_keys_to_message_keys_sample_sheet_header.items():
+            try:
+                parsed_data['header'][message_key] = sample_sheet['Header'][sample_sheet_key]
+            except Exception as e:
+                print(e)
+        for read in sample_sheet['Reads']:
+            parsed_data['reads'].append(read)
+        for key, val in sample_sheet['Settings'].items():
+            if key == 'ReverseComplement':
+                key = 'reverse_complement'
+            else:
+                key = key.lower()
+            parsed_data['settings'][key] = val
+        for sample in sample_sheet['Data']:
+            sample_to_append = {}
+            for key, val in sample.items():
+                sample_to_append[key.lower()] = val
+                parsed_data['data'].append(sample_to_append)
+
+        message_data['parsed_data'] = parsed_data
+
+        return message_data
+
+    def __publish_message(self, topic, message, socket, print_message=False):
+        if print_message == True:
+            print("%s %s" % (topic, message))
+
+        self.socket.send_string("%s %s" % (topic, message))
+
+        return None
 
     def on_modified(self, event):
         pass
 
     def on_moved(self, event):
+        now = datetime.now().isoformat()
         if re.search("SampleSheet.csv.[a-zA-Z0-9]{6}$", event.src_path) and re.search("SampleSheet.csv$", event.dest_path):
-            now = datetime.now().isoformat()
-            topic = "illumina_runs"
 
-            messagedata = {
-                "timestamp": now,
-                "event": "sample_sheet_created",
-                "path": None,
-                "run_id": None,
-                "parsed_data": {
-                    "header": {
-                        "experiment_name": None,
-                        "instrument_type": None,
-                        "investigator_name": None,
-                        "workflow": None,
-                        "chemistry": None,
-                    },
-                    "reads": [],
-                    "settings": {},
-                    "data": [],
-                }
-            }
-        
             try:
                 path = os.path.abspath(event.dest_path)
                 run_id = str(os.path.basename(os.path.dirname(event.dest_path)))
-                sample_sheet = SampleSheet(event.dest_path)
-                sample_sheet_dict = json.loads(sample_sheet.to_json())
-                for read in sample_sheet_dict['Reads']:
-                    messagedata['parsed_data']['reads'].append(read)
-                for key, val in sample_sheet_dict['Settings'].items():
-                    if key == 'ReverseComplement':
-                        key = 'reverse_complement'
-                    else:
-                        key = key.lower()
-                    messagedata['parsed_data']['settings'][key] = val
-                for sample in sample_sheet_dict['Data']:
-                    sample_to_append = {}
-                    for key, val in sample.items():
-                        sample_to_append[key.lower()] = val
-                    messagedata['parsed_data']['data'].append(sample_to_append)
-                experiment_name = sample_sheet_dict['Header']['Experiment Name']
-                instrument_type = sample_sheet_dict['Header']['Instrument Type']
-                investigator_name = sample_sheet_dict['Header']['Investigator Name']
-                workflow = sample_sheet_dict['Header']['Workflow']
-                chemistry = sample_sheet_dict['Header']['Chemistry']
             except Exception as e:
                 print(e)
 
-            messagedata['path'] = path
-            messagedata['run_id'] = run_id
-            messagedata['parsed_data']['header']['experiment_name'] = experiment_name
-            messagedata['parsed_data']['header']['instrument_type'] = instrument_type
-            messagedata['parsed_data']['header']['investigator_name'] = investigator_name
-            messagedata['parsed_data']['header']['workflow'] = workflow
-            messagedata['parsed_data']['header']['chemistry'] = chemistry
+            message_data = {
+                "timestamp": now,
+                "event": "sample_sheet_created",
+                "path": path,
+                "run_id": run_id,
+                "parsed_data": None,
+            }
+        
+            try:
+                sample_sheet = self.__parse_sample_sheet(event.dest_path)
+                message_data = self.__add_sample_sheet_data_to_message_data(message_data, sample_sheet)
+                message = json.dumps(message_data)
+                self.__publish_message(self.topic, message, self.socket, print_message=True)
+            except Exception as e:
+                print(e)
 
-            message = json.dumps(messagedata)
-            print("%s %s" % (topic, message))
-            self.socket.send_string("%s %s" % (topic, message))
         elif re.search("RunCompletionStatus.xml.[a-zA-Z0-9]{6}$", event.src_path) and re.search("RunCompletionStatus.xml$", event.dest_path):
             now = datetime.now().isoformat()
             topic = "illumina_runs"

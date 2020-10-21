@@ -67,13 +67,13 @@ Messages are published to the `illumina_runs` topic. There are currently four me
   "timestamp": "2020-10-05T15:42:09.605165",
   "event": "run_directory_created",
   "path": "/path/to/201001_M00325_0210_000000000-A5B31",
-  "experiment_name": "Truly Insightful Experiment",
   "run_id": "201001_M00325_0210_000000000-A5B31",
-  "run_date": "2020-10-01",
-  "instrument_type": "MiSeq",
-  "instrument_id": "M00325",
-  "flowcell_id": "000000000-A5B31",
-  "investigator_name": "Dr. Sequencer",
+  "parsed_data": {
+    "run_date": "2020-10-01",
+    "instrument_id": "M00325",
+    "run_number": "0210",
+    "flowcell_id": "000000000-A5B31",
+  }
 }
 ```
 
@@ -83,9 +83,38 @@ Messages are published to the `illumina_runs` topic. There are currently four me
   "event": "sample_sheet_created",
   "path": "/path/to/201001_M00325_0210_000000000-A5B31/SampleSheet.csv",
   "run_id": "201001_M00325_0210_000000000-A5B31",
-  "experiment_name": "Truly Insightful Experiment",
-  "instrument_type": "MiSeq",
-  "investigator_name": "Dr. Sequencer",
+  "parsed_data": {
+    "header": {
+      "experiment_name": "Truly Insightful Experiment",
+      "instrument_type": "MiSeq",
+      "workflow": "GenerateFASTQ",
+      "investigator_name": "Dr. Sequencer",
+      "chemistry": "Amplicon"
+    },
+    "reads": [
+      251,
+      251
+    ],
+    "settings": {
+      "reverse_complement": 0,
+      "adapter": ""
+    },
+    "data": [
+      {
+        "sample_id": "S1",
+        "sample_name": "Sample-01",
+        "sample_plate": "",
+        "sample_well": "",
+        "i7_index_id": "H714",
+        "index": "GCTCATGA",
+        "i5_index_id": "H506",
+        "index2": "ACTGCATA",
+        "sample_project": "",
+        "description": ""
+      },
+      ...
+    ]
+  }
 }
 ```
 
@@ -95,9 +124,12 @@ Messages are published to the `illumina_runs` topic. There are currently four me
   "event": "run_completion_status_created",
   "path": "/path/to/201001_M00325_0210_000000000-A5B31/RunCompletionStatus.xml",
   "run_id": "201001_M00325_0210_000000000-A5B31",
-  "completion_status": "SuccessfullyCompleted",
-  "step_completed": 23,
-  "cycle_completed": 518,
-  "error_description": "None"
+  "parsed_data": {
+    "run_id": "201001_M00325_0210_000000000-A5B31",
+    "completion_status": "SuccessfullyCompleted",
+    "step_completed": 23,
+    "cycle_completed": 518,
+    "error_description": "None"
+  }
 }
 ```

@@ -39,16 +39,24 @@ class RunDirEventHandler(RegexMatchingEventHandler):
         if re.search("SampleSheet.csv.[a-zA-Z0-9]{6}$", event.src_path) and re.search("SampleSheet.csv$", event.dest_path):
             now = datetime.now().isoformat()
             topic = "illumina_runs"
-            experiment_name = ""
 
             messagedata = {
                 "timestamp": now,
                 "event": "sample_sheet_created",
                 "path": None,
                 "run_id": None,
-                "experiment_name": None,
-                "instrument_type": None,
-                "investigator_name": None,
+                "parsed_data": {
+                    "header": {
+                        "experiment_name": None,
+                        "instrument_type": None,
+                        "investigator_name": None,
+                        "workflow": None,
+                        "chemistry": None,
+                    },
+                    "reads": [],
+                    "settings": {},
+                    "data": [],
+                }
             }
         
             try:
@@ -56,17 +64,34 @@ class RunDirEventHandler(RegexMatchingEventHandler):
                 run_id = str(os.path.basename(os.path.dirname(event.dest_path)))
                 sample_sheet = SampleSheet(event.dest_path)
                 sample_sheet_dict = json.loads(sample_sheet.to_json())
+                for read in sample_sheet_dict['Reads']:
+                    messagedata['parsed_data']['reads'].append(read)
+                for key, val in sample_sheet_dict['Settings'].items():
+                    if key == 'ReverseComplement':
+                        key = 'reverse_complement'
+                    else:
+                        key = key.lower()
+                    messagedata['parsed_data']['settings'][key] = val
+                for sample in sample_sheet_dict['Data']:
+                    sample_to_append = {}
+                    for key, val in sample.items():
+                        sample_to_append[key.lower()] = val
+                    messagedata['parsed_data']['data'].append(sample_to_append)
                 experiment_name = sample_sheet_dict['Header']['Experiment Name']
                 instrument_type = sample_sheet_dict['Header']['Instrument Type']
                 investigator_name = sample_sheet_dict['Header']['Investigator Name']
+                workflow = sample_sheet_dict['Header']['Workflow']
+                chemistry = sample_sheet_dict['Header']['Chemistry']
             except Exception as e:
                 print(e)
 
             messagedata['path'] = path
             messagedata['run_id'] = run_id
-            messagedata['experiment_name'] = experiment_name
-            messagedata['instrument_type'] = instrument_type
-            messagedata['investigator_name'] = investigator_name
+            messagedata['parsed_data']['header']['experiment_name'] = experiment_name
+            messagedata['parsed_data']['header']['instrument_type'] = instrument_type
+            messagedata['parsed_data']['header']['investigator_name'] = investigator_name
+            messagedata['parsed_data']['header']['workflow'] = workflow
+            messagedata['parsed_data']['header']['chemistry'] = chemistry
 
             message = json.dumps(messagedata)
             print("%s %s" % (topic, message))
@@ -80,36 +105,34 @@ class RunDirEventHandler(RegexMatchingEventHandler):
                 "event": "run_completion_status_created",
                 "path": None,
                 "run_id": None,
-                "completion_status": None,
-                "step_completed": None,
-                "cycle_completed": None,
-                "error_description": None,
+                "parsed_data": {
+                    "run_id": None,
+                    "completion_status": None,
+                    "step_completed": None,
+                    "cycle_completed": None,
+                    "error_description": None,
+                }
             }
 
             try:
                 messagedata['path'] = os.path.abspath(event.dest_path)
+                messagedata['run_id'] = str(os.path.basename(os.path.dirname(event.dest_path)))
+
                 run_completion_status_tree = ET.parse(event.dest_path)
                 run_completion_status_root = run_completion_status_tree.getroot()
                 for child in run_completion_status_root:
                     if child.tag == 'CompletionStatus':
-                        messagedata['completion_status'] = child.text
+                        messagedata['parsed_data']['completion_status'] = child.text
                     elif child.tag == 'RunId':
-                        messagedata['run_id'] = child.text
+                        messagedata['parsed_data']['run_id'] = child.text
                     elif child.tag == 'StepCompleted':
-                        messagedata['step_completed'] = int(child.text)
+                        messagedata['parsed_data']['step_completed'] = int(child.text)
                     elif child.tag == 'CycleCompleted':
-                        messagedata['cycle_completed'] = int(child.text)
+                        messagedata['parsed_data']['cycle_completed'] = int(child.text)
                     elif child.tag == 'ErrorDescription':
-                        messagedata['error_description'] = child.text
+                        messagedata['parsed_data']['error_description'] = child.text
             except Exception as e:
                 print(e)
-
-            # messagedata['path'] = path
-            # messagedata['run_id'] = run_id
-            # messagedata['completion_status'] = completion_status
-            # messagedata['step_completed'] = step_completed
-            # messagedata['cycle_completed'] = cycle_completed
-            # messagedata['error_description'] = cycle_completed
 
             message = json.dumps(messagedata)
             print("%s %s" % (topic, message))
@@ -119,15 +142,10 @@ class RunDirEventHandler(RegexMatchingEventHandler):
             pass
 
     def on_created(self, event):
-        print(event.src_path)
         miseq_run_dir_regex = ".+/\d{6}_[A-Z0-9]{6}_\d{4}_\d{9}-[A-Z0-9]{5}$"
-        miseq_sample_sheet_regex = ".+/.+/\d{6}_[A-Z0-9]{6}_\d{4}_\d{9}-[A-Z0-9]{5}/SampleSheet\.csv$"
-        
-        path = os.path.abspath(event.src_path)
 
         if re.search(miseq_run_dir_regex, event.src_path):
             topic = "illumina_runs"
-            experiment_name = ""
             now = datetime.now().isoformat()
 
             messagedata = {
@@ -135,13 +153,16 @@ class RunDirEventHandler(RegexMatchingEventHandler):
                 "event": "run_directory_created",
                 "path": None,
                 "run_id": None,
-                "run_date": None,
-                "instrument_id": None,
-                "flowcell_id": None
+                "parsed_data": {
+                    "run_date": None,
+                    "instrument_id": None,
+                    "run_number": None,
+                    "flowcell_id": None,
+                }
             }
         
             try:
-                # path = os.path.abspath(event.src_path)
+                path = os.path.abspath(event.src_path)
                 run_dir_name = os.path.basename(path)
                 run_id = run_dir_name
                 date_short, instrument_id, run_num, flowcell_id = run_dir_name.split('_')
@@ -152,9 +173,10 @@ class RunDirEventHandler(RegexMatchingEventHandler):
 
             messagedata['path'] = path
             messagedata['run_id'] = run_id
-            messagedata['run_date'] = run_date_isoformat
-            messagedata['instrument_id'] = instrument_id
-            messagedata['flowcell_id'] = flowcell_id
+            messagedata['parsed_data']['run_date'] = run_date_isoformat
+            messagedata['parsed_data']['instrument_id'] = instrument_id
+            messagedata['parsed_data']['run_number'] = run_num
+            messagedata['parsed_data']['flowcell_id'] = flowcell_id
 
             message = json.dumps(messagedata)
             print("%s %s" % (topic, message))

@@ -33,17 +33,8 @@ class RunDirEventHandler(RegexMatchingEventHandler):
         self.socket = socket
         self.topic = "illumina_runs"
 
+
     def __parse_sample_sheet(self, path_to_sample_sheet):
-        parsed_sample_sheet = None
-        try:
-            sample_sheet = SampleSheet(path_to_sample_sheet)
-            parsed_sample_sheet = json.loads(sample_sheet.to_json())
-        except Exception as e:
-            print(e)
-
-        return parsed_sample_sheet
-
-    def __add_sample_sheet_data_to_message_data(self, message_data, sample_sheet):
         parsed_data = {
             "header": {
                 "experiment_name": None,
@@ -56,6 +47,11 @@ class RunDirEventHandler(RegexMatchingEventHandler):
             "settings": {},
             "data": [],
         }
+
+        try:
+            sample_sheet = json.loads(SampleSheet(path_to_sample_sheet).to_json())
+        except Exception as e:
+            print(e)
 
         sample_sheet_keys_to_message_keys_sample_sheet_header = {
             'Experiment Name': 'experiment_name',
@@ -70,23 +66,44 @@ class RunDirEventHandler(RegexMatchingEventHandler):
                 parsed_data['header'][message_key] = sample_sheet['Header'][sample_sheet_key]
             except Exception as e:
                 print(e)
+
         for read in sample_sheet['Reads']:
             parsed_data['reads'].append(read)
+
         for key, val in sample_sheet['Settings'].items():
             if key == 'ReverseComplement':
                 key = 'reverse_complement'
             else:
                 key = key.lower()
             parsed_data['settings'][key] = val
+
         for sample in sample_sheet['Data']:
             sample_to_append = {}
             for key, val in sample.items():
                 sample_to_append[key.lower()] = val
                 parsed_data['data'].append(sample_to_append)
 
-        message_data['parsed_data'] = parsed_data
+        return parsed_data
 
-        return message_data
+
+    def __parse_run_completion_status(self, path_to_run_completion_status):
+        parsed_data = {}
+        run_completion_status_tree = ET.parse(path_to_run_completion_status)
+        run_completion_status_root = run_completion_status_tree.getroot()
+        for child in run_completion_status_root:
+            if child.tag == 'CompletionStatus':
+                parsed_data['completion_status'] = child.text
+            elif child.tag == 'RunId':
+                parsed_data['run_id'] = child.text
+            elif child.tag == 'StepCompleted':
+                parsed_data['step_completed'] = int(child.text)
+            elif child.tag == 'CycleCompleted':
+                parsed_data['cycle_completed'] = int(child.text)
+            elif child.tag == 'ErrorDescription':
+                parsed_data['error_description'] = child.text
+
+        return parsed_data
+
 
     def __publish_message(self, topic, message, socket, print_message=False):
         if print_message == True:
@@ -96,8 +113,10 @@ class RunDirEventHandler(RegexMatchingEventHandler):
 
         return None
 
+
     def on_modified(self, event):
         pass
+
 
     def on_moved(self, event):
         now = datetime.now().isoformat()
@@ -118,55 +137,36 @@ class RunDirEventHandler(RegexMatchingEventHandler):
             }
         
             try:
-                sample_sheet = self.__parse_sample_sheet(event.dest_path)
-                message_data = self.__add_sample_sheet_data_to_message_data(message_data, sample_sheet)
+                parsed_sample_sheet_data = self.__parse_sample_sheet(event.dest_path)
+                message_data['parsed_data'] = parsed_sample_sheet_data
                 message = json.dumps(message_data)
                 self.__publish_message(self.topic, message, self.socket, print_message=True)
             except Exception as e:
                 print(e)
 
         elif re.search("RunCompletionStatus.xml.[a-zA-Z0-9]{6}$", event.src_path) and re.search("RunCompletionStatus.xml$", event.dest_path):
-            now = datetime.now().isoformat()
-            topic = "illumina_runs"
-
-            messagedata = {
-                "timestamp": now,
-                "event": "run_completion_status_created",
-                "path": None,
-                "run_id": None,
-                "parsed_data": {
-                    "run_id": None,
-                    "completion_status": None,
-                    "step_completed": None,
-                    "cycle_completed": None,
-                    "error_description": None,
-                }
-            }
-
             try:
-                messagedata['path'] = os.path.abspath(event.dest_path)
-                messagedata['run_id'] = str(os.path.basename(os.path.dirname(event.dest_path)))
-
-                run_completion_status_tree = ET.parse(event.dest_path)
-                run_completion_status_root = run_completion_status_tree.getroot()
-                for child in run_completion_status_root:
-                    if child.tag == 'CompletionStatus':
-                        messagedata['parsed_data']['completion_status'] = child.text
-                    elif child.tag == 'RunId':
-                        messagedata['parsed_data']['run_id'] = child.text
-                    elif child.tag == 'StepCompleted':
-                        messagedata['parsed_data']['step_completed'] = int(child.text)
-                    elif child.tag == 'CycleCompleted':
-                        messagedata['parsed_data']['cycle_completed'] = int(child.text)
-                    elif child.tag == 'ErrorDescription':
-                        messagedata['parsed_data']['error_description'] = child.text
+                path = os.path.abspath(event.dest_path)
+                run_id = str(os.path.basename(os.path.dirname(event.dest_path)))
             except Exception as e:
                 print(e)
 
-            message = json.dumps(messagedata)
-            print("%s %s" % (topic, message))
-            self.socket.send_string("%s %s" % (topic, message))
-            
+            message_data = {
+                "timestamp": now,
+                "event": "run_completion_status_created",
+                "path": path,
+                "run_id": run_id,
+                "parsed_data": None,
+            }
+
+            try:
+                parsed_run_completion_status_data = self.__parse_run_completion_status(event.dest_path)
+                message_data['parsed_data'] = parsed_run_completion_status_data
+                message = json.dumps(message_data)
+                self.__publish_message(self.topic, message, self.socket, print_message=True)
+            except Exception as e:
+                print(e)
+
         else:
             pass
 

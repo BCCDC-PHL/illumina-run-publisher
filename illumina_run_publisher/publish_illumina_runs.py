@@ -34,6 +34,26 @@ class RunDirEventHandler(RegexMatchingEventHandler):
         self.topic = "illumina_runs"
 
 
+    def __parse_miseq_run_id(self, miseq_run_id):
+        parsed_data = {
+            'run_date': None,
+            'instrument_id': None,
+            'run_number': None,
+            'flowcell_id': None,
+        }
+
+        date_short, instrument_id, run_num, flowcell_id = miseq_run_id.split('_')
+        run_date = datetime.strptime('20' + date_short, '%Y%m%d').date()
+        run_date_isoformat = run_date.isoformat()
+
+        parsed_data['run_date'] = run_date_isoformat
+        parsed_data['instrument_id'] = instrument_id
+        parsed_data['run_number'] = run_num
+        parsed_data['flowcell_id'] = flowcell_id
+
+        return parsed_data
+
+
     def __parse_sample_sheet(self, path_to_sample_sheet):
         parsed_data = {
             "header": {
@@ -87,7 +107,14 @@ class RunDirEventHandler(RegexMatchingEventHandler):
 
 
     def __parse_run_completion_status(self, path_to_run_completion_status):
-        parsed_data = {}
+        parsed_data = {
+            'completion_status': None,
+            'run_id': None,
+            'step_completed': None,
+            'cycle_completed': None,
+            'error_description': None,
+        }
+
         run_completion_status_tree = ET.parse(path_to_run_completion_status)
         run_completion_status_root = run_completion_status_tree.getroot()
         for child in run_completion_status_root:
@@ -170,47 +197,34 @@ class RunDirEventHandler(RegexMatchingEventHandler):
         else:
             pass
 
+
     def on_created(self, event):
+        now = datetime.now().isoformat()
         miseq_run_dir_regex = ".+/\d{6}_[A-Z0-9]{6}_\d{4}_\d{9}-[A-Z0-9]{5}$"
 
         if re.search(miseq_run_dir_regex, event.src_path):
-            topic = "illumina_runs"
-            now = datetime.now().isoformat()
 
-            messagedata = {
-                "timestamp": now,
-                "event": "run_directory_created",
-                "path": None,
-                "run_id": None,
-                "parsed_data": {
-                    "run_date": None,
-                    "instrument_id": None,
-                    "run_number": None,
-                    "flowcell_id": None,
-                }
-            }
-        
             try:
                 path = os.path.abspath(event.src_path)
-                run_dir_name = os.path.basename(path)
-                run_id = run_dir_name
-                date_short, instrument_id, run_num, flowcell_id = run_dir_name.split('_')
-                run_date = datetime.strptime('20' + date_short, '%Y%m%d').date()
-                run_date_isoformat = run_date.isoformat()
+                run_id = str(os.path.basename(path))
             except Exception as e:
                 print(e)
 
-            messagedata['path'] = path
-            messagedata['run_id'] = run_id
-            messagedata['parsed_data']['run_date'] = run_date_isoformat
-            messagedata['parsed_data']['instrument_id'] = instrument_id
-            messagedata['parsed_data']['run_number'] = run_num
-            messagedata['parsed_data']['flowcell_id'] = flowcell_id
-
-            message = json.dumps(messagedata)
-            print("%s %s" % (topic, message))
-            self.socket.send_string("%s %s" % (topic, message))
-
+            message_data = {
+                "timestamp": now,
+                "event": "run_directory_created",
+                "path": path,
+                "run_id": run_id,
+                "parsed_data": None,
+            }
+        
+            try:
+                parsed_miseq_run_id = self.__parse_miseq_run_id()
+                message_data['parsed_data'] = parsed_miseq_run_id
+                message = json.dumps(messagedata)
+                self.__publish_message(self.topic, message, self.socket, print_message=True)
+            except Exception as e:
+                print(e)
 
 
 def heartbeat(socket, heartbeat_interval, print_heartbeat=False):

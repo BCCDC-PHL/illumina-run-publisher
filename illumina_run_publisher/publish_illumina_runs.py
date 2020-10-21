@@ -49,6 +49,7 @@ class RunDirEventHandler(RegexMatchingEventHandler):
                 "experiment_name": None,
                 "instrument_type": None,
                 "investigator_name": None,
+                "samples": [],
             }
         
             try:
@@ -56,6 +57,11 @@ class RunDirEventHandler(RegexMatchingEventHandler):
                 run_id = str(os.path.basename(os.path.dirname(event.dest_path)))
                 sample_sheet = SampleSheet(event.dest_path)
                 sample_sheet_dict = json.loads(sample_sheet.to_json())
+                for sample in sample_sheet_dict['Data']:
+                    sample_to_append = {}
+                    for key, val in sample.items():
+                        sample_to_append[key.lower()] = val
+                    messagedata['samples'].append(sample_to_append)
                 experiment_name = sample_sheet_dict['Header']['Experiment Name']
                 instrument_type = sample_sheet_dict['Header']['Instrument Type']
                 investigator_name = sample_sheet_dict['Header']['Investigator Name']

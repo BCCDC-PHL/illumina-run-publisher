@@ -83,9 +83,36 @@ Messages are published to the `illumina_runs` topic. There are currently four me
   "event": "sample_sheet_created",
   "path": "/path/to/201001_M00325_0210_000000000-A5B31/SampleSheet.csv",
   "run_id": "201001_M00325_0210_000000000-A5B31",
-  "experiment_name": "Truly Insightful Experiment",
-  "instrument_type": "MiSeq",
-  "investigator_name": "Dr. Sequencer",
+  "header": {
+    "experiment_name": "Truly Insightful Experiment",
+    "instrument_type": "MiSeq",
+    "workflow": "GenerateFASTQ",
+    "investigator_name": "Dr. Sequencer",
+    "chemistry", "Amplicon"
+  },
+  "reads": [
+    251,
+    251
+  ],
+  "settings": {
+    reversecomplement: 0,
+    adapter: ""
+  },
+  "data": [
+    {
+      "sample_id": "S1",
+      "sample_name": "Sample-01",
+      "sample_plate": "",
+      "sample_well": "",
+      "i7_index_id": "H714",
+      "index": "GCTCATGA",
+      "i5_index_id": "H506",
+      "index2": "ACTGCATA",
+      "sample_project": "",
+      "description": ""
+    },
+    ...
+  ]
 }
 ```
 

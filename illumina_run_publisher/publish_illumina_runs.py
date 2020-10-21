@@ -31,157 +31,200 @@ class RunDirEventHandler(RegexMatchingEventHandler):
     def __init__(self, socket, regexes):
         super().__init__(regexes)
         self.socket = socket
+        self.topic = "illumina_runs"
+
+
+    def __parse_miseq_run_id(self, miseq_run_id):
+        parsed_data = {
+            'run_date': None,
+            'instrument_id': None,
+            'run_number': None,
+            'flowcell_id': None,
+        }
+
+        date_short, instrument_id, run_num, flowcell_id = miseq_run_id.split('_')
+        run_date = datetime.strptime('20' + date_short, '%Y%m%d').date()
+        run_date_isoformat = run_date.isoformat()
+
+        parsed_data['run_date'] = run_date_isoformat
+        parsed_data['instrument_id'] = instrument_id
+        parsed_data['run_number'] = run_num
+        parsed_data['flowcell_id'] = flowcell_id
+
+        return parsed_data
+
+
+    def __parse_sample_sheet(self, path_to_sample_sheet):
+        parsed_data = {
+            "header": {
+                "experiment_name": None,
+                "instrument_type": None,
+                "investigator_name": None,
+                "workflow": None,
+                "chemistry": None,
+            },
+            "reads": [],
+            "settings": {},
+            "data": [],
+        }
+
+        try:
+            sample_sheet = json.loads(SampleSheet(path_to_sample_sheet).to_json())
+        except Exception as e:
+            print(e)
+
+        sample_sheet_keys_to_message_keys_sample_sheet_header = {
+            'Experiment Name': 'experiment_name',
+            'Instrument Type': 'instrument_type',
+            'Investigator Name': 'investigator_name',
+            'Workflow': 'workflow',
+            'Chemistry': 'chemistry',
+        }
+        
+        for sample_sheet_key, message_key in sample_sheet_keys_to_message_keys_sample_sheet_header.items():
+            try:
+                parsed_data['header'][message_key] = sample_sheet['Header'][sample_sheet_key]
+            except Exception as e:
+                print(e)
+
+        for read in sample_sheet['Reads']:
+            parsed_data['reads'].append(read)
+
+        for key, val in sample_sheet['Settings'].items():
+            if key == 'ReverseComplement':
+                key = 'reverse_complement'
+            else:
+                key = key.lower()
+            parsed_data['settings'][key] = val
+
+        for sample in sample_sheet['Data']:
+            sample_to_append = {}
+            for key, val in sample.items():
+                sample_to_append[key.lower()] = val
+                parsed_data['data'].append(sample_to_append)
+
+        return parsed_data
+
+
+    def __parse_run_completion_status(self, path_to_run_completion_status):
+        parsed_data = {
+            'completion_status': None,
+            'run_id': None,
+            'step_completed': None,
+            'cycle_completed': None,
+            'error_description': None,
+        }
+
+        run_completion_status_tree = ET.parse(path_to_run_completion_status)
+        run_completion_status_root = run_completion_status_tree.getroot()
+        for child in run_completion_status_root:
+            if child.tag == 'CompletionStatus':
+                parsed_data['completion_status'] = child.text
+            elif child.tag == 'RunId':
+                parsed_data['run_id'] = child.text
+            elif child.tag == 'StepCompleted':
+                parsed_data['step_completed'] = int(child.text)
+            elif child.tag == 'CycleCompleted':
+                parsed_data['cycle_completed'] = int(child.text)
+            elif child.tag == 'ErrorDescription':
+                parsed_data['error_description'] = child.text
+
+        return parsed_data
+
+
+    def __publish_message(self, topic, message, socket, print_message=False):
+        if print_message == True:
+            print("%s %s" % (topic, message))
+
+        self.socket.send_string("%s %s" % (topic, message))
+
+        return None
+
 
     def on_modified(self, event):
         pass
 
-    def on_moved(self, event):
-        if re.search("SampleSheet.csv.[a-zA-Z0-9]{6}$", event.src_path) and re.search("SampleSheet.csv$", event.dest_path):
-            now = datetime.now().isoformat()
-            topic = "illumina_runs"
 
-            messagedata = {
-                "timestamp": now,
-                "event": "sample_sheet_created",
-                "path": None,
-                "run_id": None,
-                "parsed_data": {
-                    "header": {
-                        "experiment_name": None,
-                        "instrument_type": None,
-                        "investigator_name": None,
-                        "workflow": None,
-                        "chemistry": None,
-                    },
-                    "reads": [],
-                    "settings": {},
-                    "data": [],
-                }
-            }
-        
+    def on_moved(self, event):
+        now = datetime.now().isoformat()
+        if re.search("SampleSheet.csv.[a-zA-Z0-9]{6}$", event.src_path) and re.search("SampleSheet.csv$", event.dest_path):
+
             try:
                 path = os.path.abspath(event.dest_path)
                 run_id = str(os.path.basename(os.path.dirname(event.dest_path)))
-                sample_sheet = SampleSheet(event.dest_path)
-                sample_sheet_dict = json.loads(sample_sheet.to_json())
-                for read in sample_sheet_dict['Reads']:
-                    messagedata['parsed_data']['reads'].append(read)
-                for key, val in sample_sheet_dict['Settings'].items():
-                    if key == 'ReverseComplement':
-                        key = 'reverse_complement'
-                    else:
-                        key = key.lower()
-                    messagedata['parsed_data']['settings'][key] = val
-                for sample in sample_sheet_dict['Data']:
-                    sample_to_append = {}
-                    for key, val in sample.items():
-                        sample_to_append[key.lower()] = val
-                    messagedata['parsed_data']['data'].append(sample_to_append)
-                experiment_name = sample_sheet_dict['Header']['Experiment Name']
-                instrument_type = sample_sheet_dict['Header']['Instrument Type']
-                investigator_name = sample_sheet_dict['Header']['Investigator Name']
-                workflow = sample_sheet_dict['Header']['Workflow']
-                chemistry = sample_sheet_dict['Header']['Chemistry']
             except Exception as e:
                 print(e)
 
-            messagedata['path'] = path
-            messagedata['run_id'] = run_id
-            messagedata['parsed_data']['header']['experiment_name'] = experiment_name
-            messagedata['parsed_data']['header']['instrument_type'] = instrument_type
-            messagedata['parsed_data']['header']['investigator_name'] = investigator_name
-            messagedata['parsed_data']['header']['workflow'] = workflow
-            messagedata['parsed_data']['header']['chemistry'] = chemistry
-
-            message = json.dumps(messagedata)
-            print("%s %s" % (topic, message))
-            self.socket.send_string("%s %s" % (topic, message))
-        elif re.search("RunCompletionStatus.xml.[a-zA-Z0-9]{6}$", event.src_path) and re.search("RunCompletionStatus.xml$", event.dest_path):
-            now = datetime.now().isoformat()
-            topic = "illumina_runs"
-
-            messagedata = {
+            message_data = {
                 "timestamp": now,
-                "event": "run_completion_status_created",
-                "path": None,
-                "run_id": None,
-                "parsed_data": {
-                    "run_id": None,
-                    "completion_status": None,
-                    "step_completed": None,
-                    "cycle_completed": None,
-                    "error_description": None,
-                }
-            }
-
-            try:
-                messagedata['path'] = os.path.abspath(event.dest_path)
-                messagedata['run_id'] = str(os.path.basename(os.path.dirname(event.dest_path)))
-
-                run_completion_status_tree = ET.parse(event.dest_path)
-                run_completion_status_root = run_completion_status_tree.getroot()
-                for child in run_completion_status_root:
-                    if child.tag == 'CompletionStatus':
-                        messagedata['parsed_data']['completion_status'] = child.text
-                    elif child.tag == 'RunId':
-                        messagedata['parsed_data']['run_id'] = child.text
-                    elif child.tag == 'StepCompleted':
-                        messagedata['parsed_data']['step_completed'] = int(child.text)
-                    elif child.tag == 'CycleCompleted':
-                        messagedata['parsed_data']['cycle_completed'] = int(child.text)
-                    elif child.tag == 'ErrorDescription':
-                        messagedata['parsed_data']['error_description'] = child.text
-            except Exception as e:
-                print(e)
-
-            message = json.dumps(messagedata)
-            print("%s %s" % (topic, message))
-            self.socket.send_string("%s %s" % (topic, message))
-            
-        else:
-            pass
-
-    def on_created(self, event):
-        miseq_run_dir_regex = ".+/\d{6}_[A-Z0-9]{6}_\d{4}_\d{9}-[A-Z0-9]{5}$"
-
-        if re.search(miseq_run_dir_regex, event.src_path):
-            topic = "illumina_runs"
-            now = datetime.now().isoformat()
-
-            messagedata = {
-                "timestamp": now,
-                "event": "run_directory_created",
-                "path": None,
-                "run_id": None,
-                "parsed_data": {
-                    "run_date": None,
-                    "instrument_id": None,
-                    "run_number": None,
-                    "flowcell_id": None,
-                }
+                "event": "sample_sheet_created",
+                "path": path,
+                "run_id": run_id,
+                "parsed_data": None,
             }
         
             try:
-                path = os.path.abspath(event.src_path)
-                run_dir_name = os.path.basename(path)
-                run_id = run_dir_name
-                date_short, instrument_id, run_num, flowcell_id = run_dir_name.split('_')
-                run_date = datetime.strptime('20' + date_short, '%Y%m%d').date()
-                run_date_isoformat = run_date.isoformat()
+                parsed_sample_sheet_data = self.__parse_sample_sheet(event.dest_path)
+                message_data['parsed_data'] = parsed_sample_sheet_data
+                message = json.dumps(message_data)
+                self.__publish_message(self.topic, message, self.socket, print_message=True)
             except Exception as e:
                 print(e)
 
-            messagedata['path'] = path
-            messagedata['run_id'] = run_id
-            messagedata['parsed_data']['run_date'] = run_date_isoformat
-            messagedata['parsed_data']['instrument_id'] = instrument_id
-            messagedata['parsed_data']['run_number'] = run_num
-            messagedata['parsed_data']['flowcell_id'] = flowcell_id
+        elif re.search("RunCompletionStatus.xml.[a-zA-Z0-9]{6}$", event.src_path) and re.search("RunCompletionStatus.xml$", event.dest_path):
+            try:
+                path = os.path.abspath(event.dest_path)
+                run_id = str(os.path.basename(os.path.dirname(event.dest_path)))
+            except Exception as e:
+                print(e)
 
-            message = json.dumps(messagedata)
-            print("%s %s" % (topic, message))
-            self.socket.send_string("%s %s" % (topic, message))
+            message_data = {
+                "timestamp": now,
+                "event": "run_completion_status_created",
+                "path": path,
+                "run_id": run_id,
+                "parsed_data": None,
+            }
 
+            try:
+                parsed_run_completion_status_data = self.__parse_run_completion_status(event.dest_path)
+                message_data['parsed_data'] = parsed_run_completion_status_data
+                message = json.dumps(message_data)
+                self.__publish_message(self.topic, message, self.socket, print_message=True)
+            except Exception as e:
+                print(e)
+
+        else:
+            pass
+
+
+    def on_created(self, event):
+        now = datetime.now().isoformat()
+        miseq_run_dir_regex = ".+/\d{6}_[A-Z0-9]{6}_\d{4}_\d{9}-[A-Z0-9]{5}$"
+
+        if re.search(miseq_run_dir_regex, event.src_path):
+
+            try:
+                path = os.path.abspath(event.src_path)
+                run_id = str(os.path.basename(path))
+            except Exception as e:
+                print(e)
+
+            message_data = {
+                "timestamp": now,
+                "event": "run_directory_created",
+                "path": path,
+                "run_id": run_id,
+                "parsed_data": None,
+            }
+        
+            try:
+                parsed_miseq_run_id = self.__parse_miseq_run_id()
+                message_data['parsed_data'] = parsed_miseq_run_id
+                message = json.dumps(messagedata)
+                self.__publish_message(self.topic, message, self.socket, print_message=True)
+            except Exception as e:
+                print(e)
 
 
 def heartbeat(socket, heartbeat_interval, print_heartbeat=False):

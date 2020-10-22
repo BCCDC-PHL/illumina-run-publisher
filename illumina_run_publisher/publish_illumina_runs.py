@@ -28,9 +28,10 @@ __email__ = 'dan.fornika@bccdc.ca'
 
 
 class RunDirEventHandler(RegexMatchingEventHandler):
-    def __init__(self, socket, regexes):
+    def __init__(self, socket, regexes, print_messages=False):
         super().__init__(regexes)
         self.socket = socket
+        self.print_messages = print_messages
         self.topic = "illumina_runs"
 
 
@@ -167,7 +168,7 @@ class RunDirEventHandler(RegexMatchingEventHandler):
                 parsed_sample_sheet_data = self.__parse_sample_sheet(event.dest_path)
                 message_data['parsed_data'] = parsed_sample_sheet_data
                 message = json.dumps(message_data)
-                self.__publish_message(self.topic, message, self.socket, print_message=True)
+                self.__publish_message(self.topic, message, self.socket, print_message=self.print_messages)
             except Exception as e:
                 print(e)
 
@@ -190,7 +191,7 @@ class RunDirEventHandler(RegexMatchingEventHandler):
                 parsed_run_completion_status_data = self.__parse_run_completion_status(event.dest_path)
                 message_data['parsed_data'] = parsed_run_completion_status_data
                 message = json.dumps(message_data)
-                self.__publish_message(self.topic, message, self.socket, print_message=True)
+                self.__publish_message(self.topic, message, self.socket, print_message=self.print_messages)
             except Exception as e:
                 print(e)
 
@@ -219,10 +220,10 @@ class RunDirEventHandler(RegexMatchingEventHandler):
             }
         
             try:
-                parsed_miseq_run_id = self.__parse_miseq_run_id()
+                parsed_miseq_run_id = self.__parse_miseq_run_id(run_id)
                 message_data['parsed_data'] = parsed_miseq_run_id
-                message = json.dumps(messagedata)
-                self.__publish_message(self.topic, message, self.socket, print_message=True)
+                message = json.dumps(message_data)
+                self.__publish_message(self.topic, message, self.socket, print_message=self.print_messages)
             except Exception as e:
                 print(e)
 
@@ -231,11 +232,11 @@ def heartbeat(socket, heartbeat_interval, print_heartbeat=False):
     topic = "illumina_runs"
     while True:
         now = datetime.now().isoformat()
-        messagedata = {
+        message_data = {
             "timestamp": now,
             "event": "heartbeat",
         }
-        message = json.dumps(messagedata)
+        message = json.dumps(message_data)
         if (print_heartbeat):
             print("%s %s" % (topic, message))
         socket.send_string("%s %s" % (topic, message))
@@ -273,7 +274,7 @@ def main(args):
         miseq_run_completion_status_regex,
     ]
 
-    run_dir_event_handler = RunDirEventHandler(socket, regexes=illumina_run_dir_regexes)
+    run_dir_event_handler = RunDirEventHandler(socket, regexes=illumina_run_dir_regexes, print_messages=args.print_messages)
 
     observers = []
     for path in args.path:
@@ -301,6 +302,7 @@ if __name__ == '__main__':
     parser.add_argument('--path', action='append')
     parser.add_argument('--heartbeat_interval', type=int, default=1)
     parser.add_argument('--print_heartbeat', action='store_true')
+    parser.add_argument('--print_messages', action='store_true')
     parser.add_argument('--public_key')
     parser.add_argument('--private_key')
     args = parser.parse_args()
